@@ -1,0 +1,31 @@
+{# This Source Code Form is subject to the terms of the Mozilla Public
+ # License, v. 2.0. If a copy of the MPL was not distributed with this
+ # file, You can obtain one at http://mozilla.org/MPL/2.0/. -#}
+
+{% extends "privacy/base-resp.html" %}
+
+{% set doc = load_legal_doc('firefox_privacy_notice') %}
+{# Add WAI-ARIA roles #}
+{% do doc.select('body > section > section > section > header')|htmlattr(role='tab') %}
+{% do doc.select('body > section > section > section > div')|htmlattr(role='tabpanel') %}
+{# Fix the markup #}
+{% do doc.select('#telemetry-dev')[0].insert_after(doc.select('hr + p')[0]) %}
+{% do doc.select('#telemetry-dev')[0].insert_after(doc.select('hr')[0]) %}
+
+{% block page_title %}{{ doc.h1.string }}{% endblock %}
+
+{% block body_id %}firefox-notice{% endblock %}
+
+{% block article %}
+  <article class="section-content" itemscope itemtype="http://schema.org/Article">
+    <header>
+      <img class="logo" src="/media/img/privacy/logo-firefox.png" alt="">
+      <h1 itemprop="name">{{ doc.h1.string }}</h1>
+      <p class="meta"><time datetime="{{ doc.select('[datetime]')[0]['datetime'] }}" itemprop="dateModified">{{ doc.select('[datetime]')[0].string }}</time></p>
+      {{ doc.select('body > section > header > [datetime] ~ p')|join|safe }}
+    </header>
+    <div itemprop="articleBody">
+      {{ doc.select('body > section > section')|htmlattr(class='highlight accordion')|join|safe }}
+    </div>
+  </article>
+{% endblock %}

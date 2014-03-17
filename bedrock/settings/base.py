@@ -332,9 +332,6 @@ MINIFY_BUNDLES = {
         'fb_privacy': (
             'css/privacy/fb-privacy.less',
         ),
-        'web-privacy': (
-            'css/privacy/web-privacy.less',
-        ),
         'products': (
             'css/mozorg/products.less',
         ),
@@ -611,14 +608,10 @@ MINIFY_BUNDLES = {
             'js/base/mozilla-input-placeholder.js',
         ),
         'privacy': (
-            'js/base/mozilla-pager.js',
             'js/privacy/privacy.js',
         ),
         'privacy-day': (
             'js/privacy/privacy-day.js',
-        ),
-        'privacy-firefoxos': (
-            'js/privacy_firefoxos.js',
         ),
         'products': (
             'js/libs/jquery.waypoints.min.js',

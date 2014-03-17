@@ -1,5 +1,9 @@
+import re
 import urlparse
 from os import path
+import StringIO
+import markdown as md
+from bs4 import BeautifulSoup
 
 from django.conf import settings
 
@@ -10,6 +14,7 @@ from funfactory.urlresolvers import reverse
 
 
 L10N_IMG_PATH = base_path('media', 'img', 'l10n')
+LEGAL_DOCS_PATH = base_path('vendor-local', 'src', 'legal-docs')
 
 
 def _l10n_media_exists(locale, url):
@@ -414,3 +419,84 @@ def product_url(product, page, channel=None):
         kwargs['product'] = product
 
     return reverse('%s.%s' % (app, page), kwargs=kwargs)
+
+
+@jingo.register.function
+@jinja2.contextfunction
+def load_legal_doc(ctx, name):
+    """
+    Load a static Markdown file and return the document as a PyQuery object for
+    easier manipulation.
+    """
+    locale = getattr(ctx['request'], 'locale', 'en-US')
+    source = path.join(LEGAL_DOCS_PATH, name, locale + '.md')
+    output = StringIO.StringIO()
+
+    if not path.exists(source):
+        source = path.join(LEGAL_DOCS_PATH, name, 'en-US.md')
+
+    # Parse the Markdown file
+    md.markdownFromFile(input=source, output=output,
+                        extensions=['attr_list', 'outline(wrapper_cls=)'])
+    content = output.getvalue().decode('utf8')
+    output.close()
+
+    soup = BeautifulSoup(content)
+    hn_pattern = re.compile(r'^h(\d)$')
+    href_pattern = re.compile(r'^https?\:\/\/www\.mozilla\.org')
+
+    # Manipulate the markup
+    for section in soup.find_all('section'):
+        level = 0
+        header = soup.new_tag('header')
+        div = soup.new_tag('div')
+
+        section.insert(0, header)
+        section.insert(1, div)
+
+        # Append elements to <header> or <div>
+        for tag in section.children:
+            match = hn_pattern.match(tag.name)
+            if match:
+                header.append(tag)
+                level = int(match.group(1))
+            if tag.name == 'p':
+                (header if level == 1 else div).append(tag)
+            if tag.name in ['ul', 'hr']:
+                div.append(tag)
+
+        if level > 3:
+            section.parent.div.append(section)
+
+        # Remove empty <div>s
+        if len(div.contents) == 0:
+            div.extract()
+
+    # Convert the site's full URLs to absolute paths
+    for link in soup.find_all(href=href_pattern):
+        link['href'] = href_pattern.sub('', link['href'])
+
+    # Return the HTML flagment as a BeautifulSoup object
+    return soup
+
+
+@jingo.register.filter
+def htmlattr(_list, **kwargs):
+    """
+    Assign an attribute to elements, like jQuery's attr function. The _list
+    argument is a BeautifulSoup iterable object. Note that such a code doesn't
+    work in a Jinja2 template:
+
+        {% set body.p['id'] = 'great' %}
+        {% set body.p['class'] = 'awesome' %}
+
+    Instead, use this htmlattr function like
+
+        {{ body.p|htmlattr(id='great', class='awesome') }}
+
+    """
+    for tag in _list:
+        for attr, value in kwargs.iteritems():
+            tag[attr] = value
+
+    return _list
